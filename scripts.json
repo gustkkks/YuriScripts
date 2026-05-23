@@ -1,0 +1,42 @@
+[
+    {
+        "Name": "YuriScripts Universal",
+        "Description": "Aimbot, ESP, Speed, Jump, No Clip and more.",
+        "Game": "Universal (any game)",
+        "Icon": "zap",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/main/Scripts/YuriUniversal",
+        "Status": "online"
+    },
+    {
+        "Name": "YuriScripts FTF",
+        "Description": "PC ESP, Pods, Exits, Lockers, No Clip, Anti PC Error and more.",
+        "Game": "Flee The Facility",
+        "Icon": "footprints",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/main/Scripts/YuriFTF",
+        "Status": "online"
+    },
+    {
+        "Name": "YuriScripts MM2",
+        "Description": "ESP, Aimbot, Farm, Teleport, Animations and more.",
+        "Game": "Murder Mystery 2",
+        "Icon": "sword",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/main/Scripts/YuriMM2",
+        "Status": "em breve"
+    },
+    {
+        "Name": "YuriScripts Blox Fruits",
+        "Description": "Auto Farm, Boss Farm, ESP, Teleport, Race V4 and more.",
+        "Game": "Blox Fruits",
+        "Icon": "cherry",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/main/Scripts/YuriBF",
+        "Status": "em breve"
+    },
+    {
+        "Name": "YuriScripts Muscle Legends",
+        "Description": "Auto Farm, Rocks, Pets, Rebirth, Teleport and more.",
+        "Game": "Muscle Legends",
+        "Icon": "dumbbell",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/main/Scripts/YuriML",
+        "Status": "em breve"
+    }
+]
