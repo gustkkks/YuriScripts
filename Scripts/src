@@ -1,1 +1,12 @@
-
+local VirtualUser = game:GetService('VirtualUser')
+game:GetService('Players').LocalPlayer.Idle
+d:Connecr(function()
+  VirtualUser:CaptureController()
+  VirtualUser:ClickButton2(Vector2.new())
+  end)
+  
+  game:GetService("StarterGui"):SetCore("SendNotification",{
+  Title:"AntiAFK loaded!",
+  Text="Made By Yuri",
+  Button1="Thanks",
+  Duration=5})
