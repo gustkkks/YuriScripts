@@ -1,0 +1,42 @@
+[
+    {
+        "Name": "YuriScripts Universal",
+        "Description": "Aimbot, ESP, Speed, Jump, No Clip and more.",
+        "Game": "Universal (any game)",
+        "Icon": "zap",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/refs/heads/main/Scripts/YuriUniversal",
+        "Status": "online"
+    },
+    {
+        "Name": "YuriScripts FTF",
+        "Description": "PC ESP, Pods, Exits, Lockers, No Clip, Anti PC Error and more.",
+        "Game": "Flee The Facility",
+        "Icon": "footprints",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/refs/heads/main/Scripts/YuriFTF",
+        "Status": "online"
+    },
+    {
+        "Name": "YuriScripts Muscle Legends",
+        "Description": "Auto Farm, Rocks, Pets, Rebirth, Teleport and more.",
+        "Game": "Muscle Legends",
+        "Icon": "dumbbell",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/refs/heads/main/Scripts/YuriML",
+        "Status": "online"
+    },
+    {
+        "Name": "YuriScripts 99 Nights in the Forest",
+        "Description": "ESP, Kill Aura, Chop Aura, Feed, Bring Items, Teleport, Scan and more.",
+        "Game": "99 Nights in the Forest",
+        "Icon": "tree-pine",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/refs/heads/main/Scripts/Yuri99",
+        "Status": "online"
+    },
+    {
+        "Name": "YuriScripts Blox Fruits",
+        "Description": "Auto Farm, Boss Farm, Sea Events, Race V4, Dojo, PVP and more.",
+        "Game": "Blox Fruits",
+        "Icon": "cherry",
+        "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/refs/heads/main/Scripts/YuriBF",
+        "Status": "beta"
+    }
+]
