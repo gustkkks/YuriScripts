@@ -38,13 +38,13 @@
         "Icon": "cherry",
         "URL": "https://raw.githubusercontent.com/gustkkks/YuriScripts/refs/heads/main/Scripts/YuriBF",
         "Status": "beta"
-    }
-       {
+    },
+    {
         "Name": "YuriScripts TAS",
         "Description": "Reply Your Movements.",
         "Game": "Universal",
         "Icon": "Zap",
         "URL": "https://raw.githubusercontent.com/gustkkks/Cracked-Scripts/refs/heads/main/YuriTAS",
         "Status": "online"
-       }
+    }
 ]
