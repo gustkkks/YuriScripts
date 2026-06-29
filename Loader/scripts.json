@@ -41,9 +41,9 @@
     },
     {
         "Name": "YuriScripts TAS",
-        "Description": "Reply Your Movements.",
+        "Description": "Replay Your Movements.",
         "Game": "Universal",
-        "Icon": "Zap",
+        "Icon": "zap",
         "URL": "https://raw.githubusercontent.com/gustkkks/Cracked-Scripts/refs/heads/main/YuriTAS",
         "Status": "online"
     }
