@@ -1,0 +1,786 @@
+-- Universal Script
+-- Updated with dynamic Team Whitelist selection, FOV/ESP fixes, Nickname/Distance ESP, WallCheck refinement, Team Color ESP, and robust Debugging/Logging with detailed error messages
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local Teams = game:GetService("Teams")
+
+-- ============ DEBUG LOGGER ============
+local function log(level, message, funcName)
+    local prefix = "[YuriUniversal]"
+    local output = ""
+    if funcName then
+        output = string.format("%s [%s] %s: %s", prefix, level, funcName, message)
+    else
+        output = string.format("%s [%s] %s", prefix, level, message)
+    end
+
+    if level == "ERROR" then
+        warn(output)
+    elseif level == "WARN" then
+        warn(output)
+    else
+        print(output)
+    end
+end
+
+local function getTraceback(err)
+    return err .. "\n" .. debug.traceback()
+end
+
+local function safeCall(func, funcName, ...)
+    local success, result = xpcall(func, getTraceback, ...)
+    if not success then
+        log("ERROR", "Falha na funcao: " .. result, funcName)
+        return false, result
+    else
+        -- log("INFO", "Executado com sucesso.", funcName) -- Uncomment for verbose success logging
+        return true, result
+    end
+end
+
+-- ============ SETTINGS ============
+local Settings = {
+    WalkSpeed = 16,
+    JumpPower = 50,
+    SpeedEnabled = false,
+    JumpEnabled = false,
+    AimbotEnabled = false,
+    Smoothness = 0.5,
+    FOV = 150,
+    ShowFOV = true,
+    FOVColor = Color3.fromRGB(255, 255, 255),
+    TeamCheck = true,
+    WallCheck = true,
+    ESPEnabled = false,
+    ESPBox = true,
+    ESPLine = true,
+    ESPName = true, -- New setting for Nickname ESP
+    ESPDistance = true, -- New setting for Distance ESP
+    ESPTeamColor = false, -- New setting for Team Color ESP
+    ESPColor = Color3.fromRGB(255, 255, 255),
+    InstantInteract = false,
+    WhitelistedTeams = {}, -- Stores names of whitelisted teams
+}
+
+-- ============ WALKSPEED / JUMP ============
+local function ApplyCharacter(char)
+    safeCall(function()
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            hum.WalkSpeed = Settings.WalkSpeed
+            hum.JumpPower = Settings.JumpPower
+        end
+    end, "ApplyCharacter")
+end
+
+LocalPlayer.CharacterAdded:Connect(ApplyCharacter)
+if LocalPlayer.Character then ApplyCharacter(LocalPlayer.Character) end
+
+-- ============ SPEED LOOP ============
+spawn(function()
+    while task.wait(0.1) do
+        safeCall(function()
+            if Settings.SpeedEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = Settings.WalkSpeed
+            end
+        end, "SpeedLoop")
+    end
+end)
+
+-- ============ JUMP LOOP ============
+spawn(function()
+    while task.wait(0.1) do
+        safeCall(function()
+            if Settings.JumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = Settings.JumpPower
+            end
+        end, "JumpLoop")
+    end
+end)
+
+-- ============ WALL CHECK ============
+local function IsVisible(targetPart, targetCharacter)
+    local success, result = safeCall(function()
+        if not targetPart or not targetCharacter then return false end
+        if not Settings.WallCheck then return true end
+
+        local origin = Camera.CFrame.Position
+        local direction = (targetPart.Position - origin).Unit
+        local distance = (targetPart.Position - origin).Magnitude
+
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetCharacter}
+        raycastParams.IgnoreWater = true
+
+        local raycastResult = Workspace:Raycast(origin, direction * distance, raycastParams)
+
+        return not raycastResult or raycastResult.Instance:IsDescendantOf(targetCharacter)
+    end, "IsVisible")
+    return success and result
+end
+
+-- ============ TEAM CHECK & WHITELIST ============
+local function IsOnSameTeam(player)
+    local success, result = safeCall(function()
+        if not Settings.TeamCheck then return false end
+        if not player or not player.Character then return false end
+        if not LocalPlayer.Team or not player.Team then return false end
+        return LocalPlayer.Team == player.Team
+    end, "IsOnSameTeam")
+    return success and result
+end
+
+local function IsTeamWhitelisted(player)
+    local success, result = safeCall(function()
+        if not player or not player.Team then return false end
+        local teamName = player.Team.Name
+        for _, whitelistedTeam in ipairs(Settings.WhitelistedTeams) do
+            if teamName == whitelistedTeam then
+                return true
+            end
+        end
+        return false
+    end, "IsTeamWhitelisted")
+    return success and result
+end
+
+-- ============ CLOSEST TARGET ============
+local function GetClosestTarget()
+    local success, result = safeCall(function()
+        local closest = nil
+        local closestDist = Settings.FOV
+        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player == LocalPlayer then continue end
+            if not player.Character then continue end
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if not hum or hum.Health <= 0 then continue end
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            if not root then continue end
+            
+            if IsOnSameTeam(player) then continue end
+            if IsTeamWhitelisted(player) then continue end
+
+            local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+            if not onScreen then continue end
+            
+            if not IsVisible(root, player.Character) then continue end
+
+            local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closest = player
+            end
+        end
+        return closest
+    end, "GetClosestTarget")
+    return success and result
+end
+
+-- ============ AIMBOT ============
+RunService.RenderStepped:Connect(function()
+    safeCall(function()
+        if Settings.AimbotEnabled then
+            local target = GetClosestTarget()
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local root = target.Character.HumanoidRootPart
+                if Settings.Smoothness > 0 then
+                    local look = Camera.CFrame.LookVector
+                    local dir = (root.Position - Camera.CFrame.Position).Unit
+                    local smooth = look:Lerp(dir, 1 - Settings.Smoothness)
+                    Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Camera.CFrame.Position + smooth)
+                else
+                    Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, root.Position)
+                end
+            end
+        end
+    end, "AimbotRenderStepped")
+end)
+
+-- ============ FOV CIRCLE ============
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1.5
+FOVCircle.NumSides = 64
+FOVCircle.Filled = false
+FOVCircle.Transparency = 0.7
+
+RunService.RenderStepped:Connect(function()
+    safeCall(function()
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        FOVCircle.Radius = Settings.FOV
+        FOVCircle.Visible = Settings.ShowFOV
+        FOVCircle.Color = Settings.FOVColor
+    end, "FOVCircleRenderStepped")
+end)
+
+-- ============ ESP ============
+local ESPObjects = {}
+local ESPConnections = {}
+
+local function CreateESP(player)
+    safeCall(function()
+        if ESPObjects[player] then return end
+        local esp = {
+            Box = Drawing.new("Square"),
+            Line = Drawing.new("Line"),
+            NameText = Drawing.new("Text"),
+            DistanceText = Drawing.new("Text"),
+        }
+        
+        esp.Box.Thickness = 1.5
+        esp.Box.Filled = false
+        esp.Box.Transparency = 0.8
+        esp.Box.Visible = false
+
+        esp.Line.Thickness = 1.5
+        esp.Line.Transparency = 0.8
+        esp.Line.Visible = false
+
+        esp.NameText.Text = player.Name
+        esp.NameText.Size = 14
+        esp.NameText.Outline = true
+        esp.NameText.OutlineColor = Color3.fromRGB(0,0,0)
+        esp.NameText.Visible = false
+
+        esp.DistanceText.Text = ""
+        esp.DistanceText.Size = 12
+        esp.DistanceText.Outline = true
+        esp.DistanceText.OutlineColor = Color3.fromRGB(0,0,0)
+        esp.DistanceText.Visible = false
+
+        ESPObjects[player] = esp
+
+        local connection = RunService.RenderStepped:Connect(function()
+            safeCall(function()
+                local espColor = Settings.ESPColor
+                if Settings.ESPTeamColor and player.Team then
+                    espColor = player.Team.TeamColor.Color
+                end
+
+                if not Settings.ESPEnabled then
+                    esp.Box.Visible = false; esp.Line.Visible = false; esp.NameText.Visible = false; esp.DistanceText.Visible = false
+                    return
+                end
+                if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+                    esp.Box.Visible = false; esp.Line.Visible = false; esp.NameText.Visible = false; esp.DistanceText.Visible = false
+                    return
+                end
+                local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then
+                    esp.Box.Visible = false; esp.Line.Visible = false; esp.NameText.Visible = false; esp.DistanceText.Visible = false
+                    return
+                end
+                local root = player.Character.HumanoidRootPart
+                local head = player.Character:FindFirstChild("Head") or root
+                local rootPos, rootOnScreen = Camera:WorldToViewportPoint(root.Position)
+                local headPos, headOnScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1, 0))
+
+                if not rootOnScreen and not headOnScreen then
+                    esp.Box.Visible = false; esp.Line.Visible = false; esp.NameText.Visible = false; esp.DistanceText.Visible = false
+                    return
+                end
+
+                local height = math.abs(rootPos.Y - headPos.Y) * 2
+                local width = height * 0.6
+
+                -- Update Box
+                if Settings.ESPBox then
+                    esp.Box.Visible = true
+                    esp.Box.Size = Vector2.new(width, height)
+                    esp.Box.Position = Vector2.new(rootPos.X - width / 2, rootPos.Y - height * 0.1)
+                    esp.Box.Color = espColor
+                else
+                    esp.Box.Visible = false
+                end
+
+                -- Update Line
+                if Settings.ESPLine then
+                    esp.Line.Visible = true
+                    esp.Line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                    esp.Line.To = Vector2.new(rootPos.X, rootPos.Y)
+                    esp.Line.Color = espColor
+                else
+                    esp.Line.Visible = false
+                end
+
+                -- Update Name Text
+                if Settings.ESPName then
+                    esp.NameText.Visible = true
+                    esp.NameText.Text = player.Name
+                    esp.NameText.Position = Vector2.new(rootPos.X - width / 2, rootPos.Y - height * 0.1 - 20) -- Above the box
+                    esp.NameText.Color = espColor
+                else
+                    esp.NameText.Visible = false
+                end
+
+                -- Update Distance Text
+                if Settings.ESPDistance then
+                    esp.DistanceText.Visible = true
+                    local distance = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                    esp.DistanceText.Text = tostring(distance) .. "m"
+                    esp.DistanceText.Position = Vector2.new(rootPos.X - width / 2, rootPos.Y + height * 0.9) -- Below the box
+                    esp.DistanceText.Color = espColor
+                else
+                    esp.DistanceText.Visible = false
+                end
+            end, "ESP_RenderStepped_Player:" .. player.Name)
+        end)
+        ESPConnections[player] = connection
+    end, "CreateESP_Player:" .. player.Name)
+end
+
+local function RemoveESP(player)
+    safeCall(function()
+        if ESPObjects[player] then
+            if ESPObjects[player].Box then ESPObjects[player].Box:Remove() end
+            if ESPObjects[player].Line then ESPObjects[player].Line:Remove() end
+            if ESPObjects[player].NameText then ESPObjects[player].NameText:Remove() end
+            if ESPObjects[player].DistanceText then ESPObjects[player].DistanceText:Remove() end
+            ESPObjects[player] = nil
+        end
+        if ESPConnections[player] then
+            ESPConnections[player]:Disconnect()
+            ESPConnections[player] = nil
+        end
+    end, "RemoveESP_Player:" .. player.Name)
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then CreateESP(player) end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    safeCall(function()
+        player.CharacterAdded:Connect(function()
+            task.wait(0.5)
+            CreateESP(player)
+        end)
+        CreateESP(player)
+    end, "PlayerAdded_Connect_Player:" .. player.Name)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    safeCall(function()
+        RemoveESP(player)
+    end, "PlayerRemoving_Connect_Player:" .. player.Name)
+end)
+
+-- ============ INSTANT INTERACT ============
+local interactConnections = {}
+
+local function SetupInstantInteract()
+    safeCall(function()
+        if #interactConnections > 0 then
+            for _, conn in ipairs(interactConnections) do
+                conn:Disconnect()
+            end
+            interactConnections = {}
+        end
+        if Settings.InstantInteract then
+            local conn = RunService.Heartbeat:Connect(function()
+                safeCall(function()
+                    pcall(function()
+                        for _, part in ipairs(workspace:GetDescendants()) do
+                            if part:IsA("ProximityPrompt") then
+                                part.MaxActivationDistance = 50
+                                part.HoldDuration = 0
+                            elseif part:IsA("ClickDetector") then
+                                part.MaxActivationDistance = 50
+                            end
+                        end
+                    end)
+                end, "InstantInteract_Heartbeat")
+            end)
+            table.insert(interactConnections, conn)
+        end
+    end, "SetupInstantInteract")
+end
+
+-- ============ WIND UI ============
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+
+if WindUI then
+    local Window = WindUI:CreateWindow({
+        Title = "YuriUniversal | Beta",
+        Folder = "UniversalConfig",
+        Icon = "solar:star-bold",
+    })
+
+    -- ============ TAB MAIN ============
+    local MainTab = Window:Tab({
+        Title = "Main",
+        Icon = "solar:settings-bold",
+    })
+
+    MainTab:Section({
+        Title = "Player",
+    })
+
+    MainTab:Toggle({
+        Title = "WalkSpeed",
+        Desc = "Ativar WalkSpeed",
+        Value = false,
+        Callback = function(state)
+            Settings.SpeedEnabled = state
+            log("INFO", "WalkSpeed Enabled: " .. tostring(state), "WalkSpeedToggle")
+        end,
+    })
+
+    MainTab:Slider({
+        Title = "WalkSpeed Value",
+        Desc = "Ajustar velocidade",
+        Value = { Min = 1, Max = 200, Default = 16 },
+        Step = 1,
+        Callback = function(value)
+            Settings.WalkSpeed = value
+            log("INFO", "WalkSpeed Value: " .. tostring(value), "WalkSpeedSlider")
+        end,
+    })
+
+    MainTab:Toggle({
+        Title = "Jump Power",
+        Desc = "Ativar Jump Power",
+        Value = false,
+        Callback = function(state)
+            Settings.JumpEnabled = state
+            log("INFO", "Jump Power Enabled: " .. tostring(state), "JumpPowerToggle")
+        end,
+    })
+
+    MainTab:Slider({
+        Title = "Jump Power Value",
+        Desc = "Ajustar poder de pulo",
+        Value = { Min = 1, Max = 500, Default = 50 },
+        Step = 1,
+        Callback = function(value)
+            Settings.JumpPower = value
+            log("INFO", "Jump Power Value: " .. tostring(value), "JumpPowerSlider")
+        end,
+    })
+
+    MainTab:Section({
+        Title = "Aimbot",
+    })
+
+    MainTab:Toggle({
+        Title = "Aimbot",
+        Desc = "Ativar aimbot",
+        Value = false,
+        Callback = function(state)
+            Settings.AimbotEnabled = state
+            log("INFO", "Aimbot Enabled: " .. tostring(state), "AimbotToggle")
+        end,
+    })
+
+    MainTab:Slider({
+        Title = "Smoothness",
+        Desc = "0 = instantaneo | 99 = muito lento",
+        Value = { Min = 0, Max = 99, Default = 50 },
+        Step = 1,
+        Callback = function(value)
+            Settings.Smoothness = value / 100
+            log("INFO", "Smoothness Value: " .. tostring(Settings.Smoothness), "SmoothnessSlider")
+        end,
+    })
+
+    MainTab:Slider({
+        Title = "FOV Radius",
+        Desc = "Alcance do aimbot",
+        Value = { Min = 10, Max = 500, Default = 150 },
+        Step = 1,
+        Callback = function(value)
+            Settings.FOV = value
+            log("INFO", "FOV Radius: " .. tostring(value), "FOVRadiusSlider")
+        end,
+    })
+
+    MainTab:Toggle({
+        Title = "Show FOV",
+        Desc = "Mostrar circulo do FOV",
+        Value = true,
+        Callback = function(state)
+            Settings.ShowFOV = state
+            log("INFO", "Show FOV: " .. tostring(state), "ShowFOVTogle")
+        end,
+    })
+
+    MainTab:Colorpicker({
+        Title = "FOV Color",
+        Default = Settings.FOVColor,
+        Callback = function(color)
+            Settings.FOVColor = color
+            log("INFO", "FOV Color: " .. tostring(color), "FOVColorPicker")
+        end,
+    })
+
+    MainTab:Toggle({
+        Title = "Team Check",
+        Desc = "Nao mirar em aliados",
+        Value = true,
+        Callback = function(state)
+            Settings.TeamCheck = state
+            log("INFO", "Team Check: " .. tostring(state), "TeamCheckToggle")
+        end,
+    })
+
+    MainTab:Toggle({
+        Title = "Wall Check",
+        Desc = "Nao mirar atraves de paredes",
+        Value = true,
+        Callback = function(state)
+            Settings.WallCheck = state
+            log("INFO", "Wall Check: " .. tostring(state), "WallCheckToggle")
+        end,
+    })
+
+    MainTab:Section({
+        Title = "Whitelist de Times",
+        Desc = "Selecione os times que o aimbot deve ignorar.",
+    })
+
+    local function updateWhitelistedTeams(teamName, isWhitelisted)
+        if isWhitelisted then
+            table.insert(Settings.WhitelistedTeams, teamName)
+            log("INFO", "Time adicionado a Whitelist: " .. teamName, "UpdateWhitelistedTeams")
+        else
+            for i, v in ipairs(Settings.WhitelistedTeams) do
+                if v == teamName then
+                    table.remove(Settings.WhitelistedTeams, i)
+                    log("INFO", "Time removido da Whitelist: " .. teamName, "UpdateWhitelistedTeams")
+                    break
+                end
+            end
+        end
+    end
+
+    -- Dynamically create toggles for each team
+    for _, team in ipairs(Teams:GetTeams()) do
+        MainTab:Toggle({
+            Title = team.Name,
+            Desc = "Ignorar o time: " .. team.Name,
+            Value = false, -- Default to not whitelisted
+            Callback = function(state)
+                updateWhitelistedTeams(team.Name, state)
+            end,
+        })
+    end
+
+    MainTab:Section({
+        Title = "Extra",
+    })
+
+    MainTab:Toggle({
+        Title = "Instant Interact",
+        Desc = "Interacao instantanea",
+        Value = false,
+        Callback = function(state)
+            Settings.InstantInteract = state
+            SetupInstantInteract()
+            log("INFO", "Instant Interact: " .. tostring(state), "InstantInteractToggle")
+        end,
+    })
+
+    -- ============ TAB VISUAL ============
+    local VisualTab = Window:Tab({
+        Title = "Visual",
+        Icon = "solar:eye-bold",
+    })
+
+    VisualTab:Section({
+        Title = "ESP",
+    })
+
+    VisualTab:Toggle({
+        Title = "ESP",
+        Desc = "Ativar ESP",
+        Value = false,
+        Callback = function(state)
+            Settings.ESPEnabled = state
+            log("INFO", "ESP Enabled: " .. tostring(state), "ESPToggle")
+        end,
+    })
+
+    VisualTab:Toggle({
+        Title = "ESP Box",
+        Desc = "Mostrar caixa",
+        Value = true,
+        Callback = function(state)
+            Settings.ESPBox = state
+            log("INFO", "ESP Box: " .. tostring(state), "ESPBoxToggle")
+        end,
+    })
+
+    VisualTab:Toggle({
+        Title = "ESP Line",
+        Desc = "Mostrar linha do chao",
+        Value = true,
+        Callback = function(state)
+            Settings.ESPLine = state
+            log("INFO", "ESP Line: " .. tostring(state), "ESPLineToggle")
+        end,
+    })
+
+    VisualTab:Toggle({
+        Title = "ESP Nickname",
+        Desc = "Mostrar nome do jogador",
+        Value = true,
+        Callback = function(state)
+            Settings.ESPName = state
+            log("INFO", "ESP Nickname: " .. tostring(state), "ESPNicknameToggle")
+        end,
+    })
+
+    VisualTab:Toggle({
+        Title = "ESP Distance",
+        Desc = "Mostrar distancia do jogador",
+        Value = true,
+        Callback = function(state)
+            Settings.ESPDistance = state
+            log("INFO", "ESP Distance: " .. tostring(state), "ESPDistanceToggle")
+        end,
+    })
+
+    VisualTab:Toggle({
+        Title = "ESP Cor do Time",
+        Desc = "Usar a cor do time do jogador para o ESP",
+        Value = false,
+        Callback = function(state)
+            Settings.ESPTeamColor = state
+            log("INFO", "ESP Team Color: " .. tostring(state), "ESPTeamColorToggle")
+        end,
+    })
+
+    VisualTab:Colorpicker({
+        Title = "ESP Cor Personalizada",
+        Desc = "Cor padrao do ESP se 'Cor do Time' estiver desativado",
+        Default = Settings.ESPColor,
+        Callback = function(color)
+            Settings.ESPColor = color
+            log("INFO", "ESP Custom Color: " .. tostring(color), "ESPColorPicker")
+        end,
+    })
+
+    -- ============ TAB TELEPORT ============
+    local TPTab = Window:Tab({
+        Title = "Teleports",
+        Icon = "solar:map-bold",
+    })
+
+    TPTab:Section({
+        Title = "Fuga De Tsunami de +1 Velocidade",
+    })
+
+    TPTab:Button({
+        Title = "Teleport Mundo 1",
+        Desc = "Vector3.new(2569.15, 13.88, 15.86)",
+        Callback = function()
+            safeCall(function()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(2569.15, 13.88, 15.86)
+                    log("INFO", "Teleportado para Mundo 1.", "TeleportMundo1")
+                else
+                    log("WARN", "Nao foi possivel teleportar: Character ou HumanoidRootPart nao encontrado.", "TeleportMundo1")
+                end
+            end, "TeleportMundo1")
+        end,
+    })
+
+    TPTab:Button({
+        Title = "Teleport Mundo 2",
+        Desc = "Vector3.new(4365.58, -95.88, -534.55)",
+        Callback = function()
+            safeCall(function()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(4365.58, -95.88, -534.55)
+                    log("INFO", "Teleportado para Mundo 2.", "TeleportMundo2")
+                else
+                    log("WARN", "Nao foi possivel teleportar: Character ou HumanoidRootPart nao encontrado.", "TeleportMundo2")
+                end
+            end, "TeleportMundo2")
+        end,
+    })
+
+    -- ============ TAB CREDITS ============
+    local CreditsTab = Window:Tab({
+        Title = "Credits",
+        Icon = "solar:info-square-bold",
+    })
+
+    CreditsTab:Section({
+        Title = "Universal Script",
+        TextSize = 24,
+    })
+
+    CreditsTab:Section({
+        Title = "Version 1.0.7",
+        TextSize = 18,
+    })
+
+    CreditsTab:Space()
+
+    CreditsTab:Section({
+        Title = "Made By",
+        TextSize = 20,
+    })
+
+    CreditsTab:Section({
+        Title = "Yuri Dev",
+        TextSize = 28,
+    })
+
+    CreditsTab:Space()
+
+    CreditsTab:Section({
+        Title = "Universal Roblox Script",
+        TextSize = 16,
+    })
+
+    CreditsTab:Space()
+
+    CreditsTab:Button({
+        Title = "Destroy GUI",
+        Color = Color3.fromRGB(200, 50, 50),
+        Callback = function()
+            safeCall(function()
+                for _, conn in ipairs(interactConnections) do conn:Disconnect() end
+                for _, conn in pairs(ESPConnections) do conn:Disconnect() end
+                for _, esp in pairs(ESPObjects) do
+                    if esp.Box then esp.Box:Remove() end
+                    if esp.Line then esp.Line:Remove() end
+                    if esp.NameText then esp.NameText:Remove() end
+                    if esp.DistanceText then esp.DistanceText:Remove() end
+                end
+                if FOVCircle then FOVCircle:Remove() end
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    LocalPlayer.Character.Humanoid.WalkSpeed = 16
+                    LocalPlayer.Character.Humanoid.JumpPower = 50
+                end
+                Window:Destroy()
+                log("INFO", "GUI destruida e configuracoes resetadas.", "DestroyGUI")
+            end, "DestroyGUI")
+        end,
+    })
+
+    log("INFO", "Script carregado! Feito por Yuri Dev", "WindUI_Init")
+else
+    warn("Falha ao carregar WindUI")
+    log("ERROR", "Falha ao carregar WindUI", "WindUI_Init")
+end
+
+-- ============ CHARACTER RESPAWN ============
+LocalPlayer.CharacterAdded:Connect(function(char)
+    safeCall(function()
+        task.wait(0.5)
+        pcall(function()
+            local hum = char:WaitForChild("Humanoid")
+            hum.WalkSpeed = Settings.WalkSpeed
+            hum.JumpPower = Settings.JumpPower
+            log("INFO", "Configuracoes de personagem aplicadas no respawn.", "CharacterRespawn")
+        end)
+    end, "CharacterAdded_Respawn")
+end)
