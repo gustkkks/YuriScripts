@@ -277,7 +277,7 @@ local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footag
 
 if WindUI then
     local Window = WindUI:CreateWindow({
-        Title = "Universal Script",
+        Title = "Yuri Universal",
         Folder = "UniversalConfig",
         Icon = "solar:star-bold",
     })
